@@ -19,7 +19,6 @@ import torch.nn as nn
 import torch.optim as optim
 import pickle
 from roi_data_layer.roidb import combined_roidb
-from roi_data_layer.roibatchLoader import roibatchLoader
 from model.utils.config import cfg, cfg_from_file, cfg_from_list, get_output_dir
 from model.rpn.bbox_transform import clip_boxes
 # from model.nms.nms_wrapper import nms
@@ -139,22 +138,27 @@ if __name__ == '__main__':
 
   np.random.seed(cfg.RNG_SEED)
   if args.dataset == "pascal_voc":
+      from roi_data_layer.pascal_oneshot_roibatchLoader import roibatchLoader
       args.imdb_name = "voc_2007_trainval"
       args.imdbval_name = "voc_2007_test"
       args.set_cfgs = ['ANCHOR_SCALES', '[8, 16, 32]', 'ANCHOR_RATIOS', '[0.5,1,2]']
   elif args.dataset == "pascal_voc_0712":
+      from roi_data_layer.pascal_oneshot_roibatchLoader import roibatchLoader
       args.imdb_name = "voc_2007_trainval+voc_2012_trainval"
       args.imdbval_name = "voc_2007_test"
       args.set_cfgs = ['ANCHOR_SCALES', '[8, 16, 32]', 'ANCHOR_RATIOS', '[0.5,1,2]']
   elif args.dataset == "coco":
+      from roi_data_layer.coco_oneshot_roibatchLoader import roibatchLoader
       args.imdb_name = "coco_2017_train"
       args.imdbval_name = "coco_2017_val"
       args.set_cfgs = ['ANCHOR_SCALES', '[4, 8, 16, 32]', 'ANCHOR_RATIOS', '[0.5,1,2]']
   elif args.dataset == "imagenet":
+      from roi_data_layer.oneshot_roibatchLoader import roibatchLoader
       args.imdb_name = "imagenet_train"
       args.imdbval_name = "imagenet_val"
       args.set_cfgs = ['ANCHOR_SCALES', '[8, 16, 32]', 'ANCHOR_RATIOS', '[0.5,1,2]']
   elif args.dataset == "vg":
+      from roi_data_layer.oneshot_roibatchLoader import roibatchLoader
       args.imdb_name = "vg_150-50-50_minitrain"
       args.imdbval_name = "vg_150-50-50_minival"
       args.set_cfgs = ['ANCHOR_SCALES', '[4, 8, 16, 32]', 'ANCHOR_RATIOS', '[0.5,1,2]']
