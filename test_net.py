@@ -162,6 +162,11 @@ if __name__ == '__main__':
       args.imdb_name = "vg_150-50-50_minitrain"
       args.imdbval_name = "vg_150-50-50_minival"
       args.set_cfgs = ['ANCHOR_SCALES', '[4, 8, 16, 32]', 'ANCHOR_RATIOS', '[0.5,1,2]']
+  elif args.dataset == "fss_cell":
+      from roi_data_layer.fss_cell_oneshot_roibatchLoader import roibatchLoader
+      args.imdb_name = "fss_cell_2020_train"
+      args.imdbval_name = "fss_cell_2020_test"
+      args.set_cfgs = ['ANCHOR_SCALES', '[4, 8, 16, 32]', 'ANCHOR_RATIOS', '[0.5,1,2]']
 
   args.cfg_file = "cfgs/{}_{}.yml".format(args.net, args.group) if args.group != 0 else "cfgs/{}.yml".format(args.net)
 
@@ -239,11 +244,11 @@ if __name__ == '__main__':
 
   # visiualization
   vis = args.vis
-  if vis:
-    thresh = 0.05
-  else:
-    thresh = 0.0
-  max_per_image = 100
+  #if vis:
+  #  thresh = 0.05
+  #else:
+  thresh = 0.0
+  max_per_image = 1000
 
   # create output Directory
   output_dir_vu = get_output_dir(imdb_vu, 'faster_rcnn_unseen')
@@ -276,11 +281,11 @@ if __name__ == '__main__':
     else:
       for i,index in enumerate(ratio_index_vu[0]):
         data = next(data_iter_vu)
-        im_data.data.resize_(data[0].size()).copy_(data[0])
-        query.data.resize_(data[1].size()).copy_(data[1])
-        im_info.data.resize_(data[2].size()).copy_(data[2])
-        gt_boxes.data.resize_(data[3].size()).copy_(data[3])
-        catgory.data.resize_(data[4].size()).copy_(data[4])
+        im_data.resize_(data[0].size()).copy_(data[0])
+        query.resize_(data[1].size()).copy_(data[1])
+        im_info.resize_(data[2].size()).copy_(data[2])
+        gt_boxes.resize_(data[3].size()).copy_(data[3])
+        catgory.resize_(data[4].size()).copy_(data[4])
 
 
         # Run Testing
@@ -368,7 +373,7 @@ if __name__ == '__main__':
         # save test image
         if vis and i%1==0:
           im2show = cv2.imread(dataset_vu._roidb[dataset_vu.ratio_index[i]]['image'])
-          im2show = vis_detections(im2show, 'shot', cls_dets.cpu().numpy(), 0.8)
+          im2show = vis_detections(im2show, 'shot', cls_dets.cpu().numpy(), 0.5)
 
           o_query = data[1][0].permute(1, 2,0).contiguous().cpu().numpy()
           o_query *= [0.229, 0.224, 0.225]

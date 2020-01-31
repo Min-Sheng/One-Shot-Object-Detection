@@ -32,6 +32,9 @@ from model.utils.net_utils import weights_normal_init, save_net, load_net, \
 from model.faster_rcnn.vgg16 import vgg16
 from model.faster_rcnn.resnet import resnet
 
+from model.rpn.bbox_transform import bbox_transform_inv
+from model.rpn.bbox_transform import clip_boxes
+
 def parse_args():
   """
   Parse input arguments
@@ -172,6 +175,11 @@ if __name__ == '__main__':
       args.imdb_name = "coco_2017_train"
       args.imdbval_name = "coco_2017_minival"
       args.set_cfgs = ['ANCHOR_SCALES', '[4, 8, 16, 32]', 'ANCHOR_RATIOS', '[0.5,1,2]', 'MAX_NUM_GT_BOXES', '50']
+  elif args.dataset == "fss_cell":
+      from roi_data_layer.fss_cell_oneshot_roibatchLoader import roibatchLoader
+      args.imdb_name = "fss_cell_2020_train"
+      args.imdbval_name = "fss_cell_2020_test"
+      args.set_cfgs = ['ANCHOR_SCALES', '[4, 8, 16, 32]', 'ANCHOR_RATIOS', '[0.5,1,2]', 'MAX_NUM_GT_BOXES', '200']
 
 
   args.cfg_file = "cfgs/{}_{}.yml".format(args.net, args.group) if args.group != 0 else "cfgs/{}.yml".format(args.net)
@@ -287,8 +295,10 @@ if __name__ == '__main__':
   iters_per_epoch = int(train_size / args.batch_size)
   
   if args.use_tfboard:
-    from tensorboardX import SummaryWriter
-    logger = SummaryWriter("logs")
+    #from tensorboardX import SummaryWriter
+    #logger = SummaryWriter("logs")
+    from loggers.logger import Logger
+    logger = Logger("logs")
 
   for epoch in range(args.start_epoch, args.max_epochs + 1):
     # setting to train mode
@@ -363,8 +373,21 @@ if __name__ == '__main__':
             'loss_margin': loss_margin,
             'loss_rcnn_box': loss_rcnn_box
           }
-          logger.add_scalars("logs_s_{}/losses".format(args.session), info, (epoch - 1) * iters_per_epoch + step)
-
+          scores = cls_prob.data
+          boxes = rois.data[:, :, 1:5]
+          
+          # Apply bounding-box regression deltas
+          box_deltas = bbox_pred.data
+          if cfg.TRAIN.BBOX_NORMALIZE_TARGETS_PRECOMPUTED:
+          # Optionally normalize targets by a precomputed mean and stdev
+            box_deltas = box_deltas * torch.FloatTensor(cfg.TRAIN.BBOX_NORMALIZE_STDS).cuda() \
+                      + torch.FloatTensor(cfg.TRAIN.BBOX_NORMALIZE_MEANS).cuda()
+          pred_boxes = bbox_transform_inv(boxes, box_deltas, im_data.size(0))
+          pred_boxes = clip_boxes(pred_boxes, im_info.data, im_data.size(0))
+          
+          #logger.add_scalars("logs_s_{}/losses".format(args.session), info, (epoch - 1) * iters_per_epoch + step)
+          logger.write((epoch - 1) * iters_per_epoch + step, args.session, info, data, pred_boxes, scores)
+          
         loss_temp = 0
         start = time.time()
 
