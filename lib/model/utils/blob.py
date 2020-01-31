@@ -47,7 +47,6 @@ def prep_im_for_blob(im, pixel_means, target_size, max_size):
     im -= pixel_means # Minus mean    
     im /= pixel_stdens # divide by stddev
 
-
     # im = im[:, :, ::-1]
     im_shape = im.shape
     im_size_min = np.min(im_shape[0:2])
@@ -61,7 +60,7 @@ def prep_im_for_blob(im, pixel_means, target_size, max_size):
                     interpolation=cv2.INTER_LINEAR)
 
     return im, im_scale
-
+    
 def crop(image, purpose, size):
 
     h, w, c = image.shape
@@ -95,5 +94,5 @@ def crop(image, purpose, size):
     x_slice = slice(cropped_ctx - left, cropped_ctx + right)
     cropped_image[y_slice, x_slice, :] = cut_image[y0:y1, x0:x1, :]
 
-
-    return cv2.resize(cropped_image, (size,size), interpolation=cv2.INTER_LINEAR)
+    return cropped_image
+    #return cv2.resize(cropped_image, (size,size), interpolation=cv2.INTER_LINEAR)

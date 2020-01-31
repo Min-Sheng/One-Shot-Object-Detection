@@ -64,8 +64,8 @@ __C.TRAIN.SUMMARY_INTERVAL = 180
 
 # Scale to use during training (can list multiple scales)
 # The scale is the pixel size of an image's shortest side
-__C.TRAIN.SCALES = (600,)
-__C.TRAIN.query_size = 128
+__C.TRAIN.SCALES = (600, )
+__C.TRAIN.query_size = 64
 
 # Max pixel size of the longest side of a scaled input image
 __C.TRAIN.MAX_SIZE = 1000
@@ -198,7 +198,7 @@ __C.TEST.RPN_NMS_THRESH = 0.7
 __C.TEST.RPN_PRE_NMS_TOP_N = 6000
 
 ## Number of top scoring boxes to keep after applying NMS to RPN proposals
-__C.TEST.RPN_POST_NMS_TOP_N = 300
+__C.TEST.RPN_POST_NMS_TOP_N = 1000
 
 # Proposal height and width both need to be greater than RPN_MIN_SIZE (at orig image scale)
 __C.TEST.RPN_MIN_SIZE = 16
@@ -262,7 +262,7 @@ __C.DEDUP_BOXES = 1. / 16.
 # Pixel mean values (BGR order) as a (1, 1, 3) array
 # We use the same pixel mean for all networks even though it's not exactly what
 # they were trained with
-__C.PIXEL_MEANS = np.array([[[102.9801, 115.9465, 122.7717]]])
+__C.PIXEL_MEANS = None #np.array([[[102.9801, 115.9465, 122.7717]]])
 
 # For reproducibility
 __C.RNG_SEED = 3
@@ -294,7 +294,7 @@ __C.POOLING_MODE = 'crop'
 __C.POOLING_SIZE = 7
 
 # Maximal number of gt rois in an image during Training
-__C.MAX_NUM_GT_BOXES = 20
+__C.MAX_NUM_GT_BOXES = 500
 
 # Anchor scales for RPN
 __C.ANCHOR_SCALES = [8,16,32]
