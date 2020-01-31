@@ -13,10 +13,17 @@ from __future__ import print_function
 __sets = {}
 from datasets.pascal_voc import pascal_voc
 from datasets.coco import coco
+from datasets.fss_cell import fss_cell
 from datasets.imagenet import imagenet
 from datasets.vg import vg
 
 import numpy as np
+
+# Set up fss_cell_<year>_<split>
+for year in ['2020']:
+  for split in ['train', 'test']:
+    name =  'fss_cell_{}_{}'.format(year, split)
+    __sets[name] = (lambda split=split, year=year: fss_cell(split, year))
 
 # Set up voc_<year>_<split>
 for year in ['2007', '2012']:
