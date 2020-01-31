@@ -31,6 +31,7 @@ def prepare_roidb(imdb):
       roidb[i]['height'] = sizes[i][1]
     # need gt_overlaps as a dense array for argmax
     gt_overlaps = roidb[i]['gt_overlaps'].toarray()
+    #print(gt_overlaps)
     # max overlap with gt over classes (columns)
     max_overlaps = gt_overlaps.max(axis=1)
     # gt class that had the max overlap
@@ -165,7 +166,8 @@ def combined_roidb(imdb_names, training=True, seen=1):
     imdb, roidb, query, reserved = get_roidb(s, training)
     imdbs.append(imdb)
     roidbs.append(roidb)
-    querys.append(query)
+    query_filterd = {k: [x for i, x in enumerate(v) if x['area']>300] for k, v in query.items()}
+    querys.append(query_filterd)
   imdb = imdbs[0]
   roidb = roidbs[0]
   query = querys[0]
