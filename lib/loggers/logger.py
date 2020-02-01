@@ -29,7 +29,7 @@ class Logger:
 
         """
         self._add_scalars(step, session, log)
-        self._add_images(step, sample_batched, pred_boxes, scores)
+        self._add_images(step, session, sample_batched, pred_boxes, scores)
 
     def close(self):
         """Close the writer.
@@ -39,16 +39,17 @@ class Logger:
     def _add_scalars(self, step, session, log):
         """Plot the training curves.
         Args:
-            session (int): The number of the session.
             step (int): The number of the step.
+            session (int): The number of the session.
             log (dict): The log information.
         """
         self.writer.add_scalars("logs_s_{}/losses".format(session), log, step)
 
-    def _add_images(self, step, sample_batched, pred_boxes, scores):
+    def _add_images(self, step, session, sample_batched, pred_boxes, scores):
         """Plot the visualization results.
         Args:
             step (int): The number of the step.
+            session (int): The number of the session.
             sample_batched (dict): The sample batch.
             pred_boxes (torch.Tensor): The prediction bounding boxes.
             scores (torch.Tensor): The scores of each bbox.
@@ -132,4 +133,4 @@ class Logger:
 
         train_grid = [to_tensor(im), to_tensor(query_bg), to_tensor(im_gt_bbox), to_tensor(im_pred_bbox)]
         train_grid = make_grid(train_grid, nrow=2, normalize=True, scale_each=True, pad_value=1)
-        self.writer.add_image(f'train', train_grid, step)
+        self.writer.add_image("logs_s_{}/train".format(session), train_grid, step)
