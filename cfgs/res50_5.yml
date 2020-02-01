@@ -15,5 +15,5 @@ TRAIN:
 TEST:
   HAS_RPN: True
 POOLING_MODE: align
-train_categories: [4]
-test_categories: [4]
+train_categories: [5]
+test_categories: [5]

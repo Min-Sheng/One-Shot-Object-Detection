@@ -314,12 +314,12 @@ class roibatchLoader(data.Dataset):
 
     folds = {
     'all': set(range(1, 15)),
-    0: set(range(1, 13)) - set(range(1, 3)),
-    1: set(range(1, 13)) - set(range(3, 6)),
-    2: set(range(1, 13)) - set(range(6, 9)),
-    3: set(range(1, 13)) - set(range(9, 11)),
-    4: set(range(1, 13)) - set(range(11, 13)),
-    5: set(range(13, 15))
+    1: set(range(1, 13)) - set(range(1, 3)),
+    2: set(range(1, 13)) - set(range(3, 6)),
+    3: set(range(1, 13)) - set(range(6, 9)),
+    4: set(range(1, 13)) - set(range(9, 11)),
+    5: set(range(1, 13)) - set(range(11, 13)),
+    6: set(range(13, 15))
     }
 
     if seen==1:
@@ -332,16 +332,16 @@ class roibatchLoader(data.Dataset):
       self.list = cfg.test_categories
       # Group number to class
       if len(self.list)==1:
-          if self.list[0] != 5:
-            self.list = list(folds['all'] - folds[self.list[0]] - folds[5])
+          if self.list[0] != 6:
+            self.list = list(folds['all'] - folds[self.list[0]] - folds[6])
           else:
-            self.list = list(folds[5])
+            self.list = list(folds[6])
     
     elif seen==3:
       self.list = cfg.train_categories + cfg.test_categories
       # Group number to class
       if len(self.list)==2:
-        self.list =list(folds[self.list['all']] - folds[5])
+        self.list =list(folds[self.list['all']] - folds[6])
   
   def probability(self):
     show_time = {}
