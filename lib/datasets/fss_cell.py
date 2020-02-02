@@ -306,8 +306,8 @@ class fss_cell(imdb):
     res_file += '.json'
     self._write_coco_results_file(all_boxes, res_file)
     # Only do evaluation on non-test sets
-    if self._image_set.find('test') == -1:
-      self._do_detection_eval(res_file, output_dir)
+    #if self._image_set.find('test') == -1:
+    self._do_detection_eval(res_file, output_dir)
     # Optionally cleanup results json file
     if self.config['cleanup']:
       os.remove(res_file)
@@ -376,12 +376,129 @@ class fss_cell(imdb):
 
 class customCOCOeval(COCOeval):
     
+    def __init__(self, cocoGt=None, cocoDt=None, iouType="segm"):
+        super().__init__(cocoGt, cocoDt, iouType)
+        self.params.maxDets = [1, 10, 100, 200, 500]
+        self.params.areaRng = [[0 ** 2, 1e5 ** 2], [0 ** 2, 16 ** 2], [16 ** 2, 64 ** 2], [64 ** 2, 1e5 ** 2]]
+        self.params.areaRngLbl = ['all', 'small', 'medium', 'large']
+
+    def computeIoU(self, imgId, catId):
+        p = self.params
+        if p.useCats:
+            gt = self._gts[imgId,catId]
+            dt = self._dts[imgId,catId]
+        else:
+            gt = [_ for cId in p.catIds for _ in self._gts[imgId,cId]]
+            dt = [_ for cId in p.catIds for _ in self._dts[imgId,cId]]
+        if len(gt) == 0 and len(dt) ==0:
+            return []
+        dt = sorted(dt, key=lambda x: -x['score'])
+        if len(dt) > p.maxDets[-1]:
+            dt=dt[0:p.maxDets[-1]]
+
+        if p.useSegm:
+            g = [g['segmentation'] for g in gt]
+            d = [d['segmentation'] for d in dt]
+        else:
+            g = [g['bbox'] for g in gt]
+            d = [d['bbox'] for d in dt]
+
+        # compute iou between each dt and gt region
+        ious = COCOmask.iou(d,g,[])
+        return ious
+    
+    def evaluateImg(self, imgId, catId, aRng, maxDet):
+        '''
+        perform evaluation for single category and image
+        :return: dict (single image results)
+        '''
+        #
+        p = self.params
+        if p.useCats:
+            gt = self._gts[imgId,catId]
+            dt = self._dts[imgId,catId]
+        else:
+            gt = [_ for cId in p.catIds for _ in self._gts[imgId,cId]]
+            dt = [_ for cId in p.catIds for _ in self._dts[imgId,cId]]
+        if len(gt) == 0 and len(dt) ==0:
+            return None
+        
+        for g in gt:
+          #if 'ignore' not in g:
+              #g['ignore'] = 0
+          #if g['ignore'] or (g['area']<aRng[0] or g['area']>aRng[1]):
+          #    g['_ignore'] = 1
+          if (g['area']<aRng[0] or g['area']>aRng[1]):
+              g['_ignore'] = 1
+          else:
+              g['_ignore'] = 0
+
+        # sort dt highest score first, sort gt ignore last
+        # gt = sorted(gt, key=lambda x: x['_ignore'])
+        gtind = [ind for (ind, g) in sorted(enumerate(gt), key=lambda ind_g: ind_g[1]['_ignore']) ]
+
+        gt = [gt[ind] for ind in gtind]
+        dt = sorted(dt, key=lambda x: -x['score'])[0:maxDet]
+        # load computed ious
+        N_iou = len(self.ious[imgId, catId])
+        ious = self.ious[imgId, catId][0:maxDet, np.array(gtind)] if N_iou >0 else self.ious[imgId, catId]
+
+        T = len(p.iouThrs)
+        G = len(gt)
+        D = len(dt)
+        gtm  = np.zeros((T,G))
+        dtm  = np.zeros((T,D))
+        gtIg = np.array([g['_ignore'] for g in gt])
+        dtIg = np.zeros((T,D))
+        if not len(ious)==0:
+            for tind, t in enumerate(p.iouThrs):
+                for dind, d in enumerate(dt):
+                    # information about best match so far (m=-1 -> unmatched)
+                    iou = min([t,1-1e-10])
+                    m   = -1
+                    for gind, g in enumerate(gt):
+                        # if this gt already matched, continue
+                        if gtm[tind,gind]>0:
+                            continue
+                        # if dt matched to reg gt, and on ignore gt, stop
+                        if m>-1 and gtIg[m]==0 and gtIg[gind]==1:
+                            break
+                        # continue to next gt unless better match made
+                        if ious[dind,gind] < iou:
+                            continue
+                        # match successful and best so far, store appropriately
+                        iou=ious[dind,gind]
+                        m=gind
+                    # if match made store id of match for both dt and gt
+                    if m ==-1:
+                        continue
+                    dtIg[tind,dind] = gtIg[m]
+                    dtm[tind,dind]  = gt[m]['id']
+                    gtm[tind,m]     = d['id']
+        # set unmatched detections outside of area range to ignore
+        a = np.array([d['area']<aRng[0] or d['area']>aRng[1] for d in dt]).reshape((1, len(dt)))
+        dtIg = np.logical_or(dtIg, np.logical_and(dtm==0, np.repeat(a,T,0)))
+        # store results for given image and category
+        return {
+                'image_id':     imgId,
+                'category_id':  catId,
+                'aRng':         aRng,
+                'maxDet':       maxDet,
+                'dtIds':        [d['id'] for d in dt],
+                'gtIds':        [g['id'] for g in gt],
+                'dtMatches':    dtm,
+                'gtMatches':    gtm,
+                'dtScores':     [d['score'] for d in dt],
+                'gtIgnore':     gtIg,
+                'dtIgnore':     dtIg,
+            }
+    
     def summarize(self, class_index=None, verbose=1):
         '''
         Compute and display summary metrics for evaluation results.
         Note this functin can *only* be applied on the default parameter setting
         '''
-        def _summarize( ap=1, iouThr=None, areaRng='all', maxDets=100 ):
+        def _summarize( ap=1, iouThr=None, areaRng='all', maxDets=500 ):
             p = self.params
             iStr = ' {:<18} {} @[ IoU={:<9} | area={:>6s} | maxDets={:>3d} ] = {:0.3f}'
             titleStr = 'Average Precision' if ap == 1 else 'Average Recall'
@@ -420,19 +537,21 @@ class customCOCOeval(COCOeval):
                 print(iStr.format(titleStr, typeStr, iouStr, areaRng, maxDets, mean_s))
             return mean_s
         def _summarizeDets():
-            stats = np.zeros((12,))
+            stats = np.zeros((14,))
             stats[0] = _summarize(1)
-            stats[1] = _summarize(1, iouThr=.5, maxDets=self.params.maxDets[2])
-            stats[2] = _summarize(1, iouThr=.75, maxDets=self.params.maxDets[2])
-            stats[3] = _summarize(1, areaRng='small', maxDets=self.params.maxDets[2])
-            stats[4] = _summarize(1, areaRng='medium', maxDets=self.params.maxDets[2])
-            stats[5] = _summarize(1, areaRng='large', maxDets=self.params.maxDets[2])
+            stats[1] = _summarize(1, iouThr=.5, maxDets=self.params.maxDets[4])
+            stats[2] = _summarize(1, iouThr=.75, maxDets=self.params.maxDets[4])
+            stats[3] = _summarize(1, areaRng='small', maxDets=self.params.maxDets[4])
+            stats[4] = _summarize(1, areaRng='medium', maxDets=self.params.maxDets[4])
+            stats[5] = _summarize(1, areaRng='large', maxDets=self.params.maxDets[4])
             stats[6] = _summarize(0, maxDets=self.params.maxDets[0])
             stats[7] = _summarize(0, maxDets=self.params.maxDets[1])
             stats[8] = _summarize(0, maxDets=self.params.maxDets[2])
-            stats[9] = _summarize(0, areaRng='small', maxDets=self.params.maxDets[2])
-            stats[10] = _summarize(0, areaRng='medium', maxDets=self.params.maxDets[2])
-            stats[11] = _summarize(0, areaRng='large', maxDets=self.params.maxDets[2])
+            stats[9] = _summarize(0, maxDets=self.params.maxDets[3])
+            stats[10] = _summarize(0, maxDets=self.params.maxDets[4])
+            stats[11] = _summarize(0, areaRng='small', maxDets=self.params.maxDets[4])
+            stats[12] = _summarize(0, areaRng='medium', maxDets=self.params.maxDets[4])
+            stats[13] = _summarize(0, areaRng='large', maxDets=self.params.maxDets[4])
             return stats
         def _summarizeKps():
             stats = np.zeros((10,))
