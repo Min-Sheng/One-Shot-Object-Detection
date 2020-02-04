@@ -244,10 +244,6 @@ if __name__ == '__main__':
 
   # visiualization
   vis = args.vis
-  #if vis:
-  #  thresh = 0.05
-  #else:
-  thresh = 0.0
   max_per_image = 1000
 
   # create output Directory
@@ -270,11 +266,19 @@ if __name__ == '__main__':
     
     _t = {'im_detect': time.time(), 'misc': time.time()}
     if args.group != 0:
-      det_file = os.path.join(output_dir_vu, 'sess%d_g%d_seen%d_%d.pkl'%(args.checksession, args.group, args.seen, avg))
+      post_fix = 'sess%d_g%d_seen%d_%d'%(args.checksession, args.group, args.seen, avg)
     else:
-      det_file = os.path.join(output_dir_vu, 'sess%d_seen%d_%d.pkl'%(args.checksession, args.seen, avg))
-    print(det_file)
+      post_fix = 'sess%d_seen%d_%d'%(args.checksession, args.seen, avg)
 
+    if vis:
+      thresh = 0.05
+      im_output_dir = os.path.abspath(os.path.join(cfg.ROOT_DIR, 'test_img', cfg.EXP_DIR, imdb_vu.name))
+      if not os.path.exists(im_output_dir):
+        os.makedirs(im_output_dir)
+    else:
+      thresh = 0.0
+    det_file = os.path.join(output_dir_vu, 'detections_' + post_fix + '.pkl')
+    
     if os.path.exists(det_file):
       with open(det_file, 'rb') as fid:
         all_boxes = pickle.load(fid)
@@ -372,7 +376,11 @@ if __name__ == '__main__':
 
         # save test image
         if vis and i%1==0:
-          im2show = cv2.imread(dataset_vu._roidb[dataset_vu.ratio_index[i]]['image'])
+          im_name = dataset_vu._roidb[dataset_vu.ratio_index[i]]['image']
+          class_name = im_name.split('/')[-4]
+          file_name = im_name.split('/')[-3]
+
+          im2show = cv2.imread(im_name)
           im2show = vis_detections(im2show, 'shot', cls_dets.cpu().numpy(), 0.5)
 
           o_query = data[1][0].permute(1, 2,0).contiguous().cpu().numpy()
@@ -385,14 +393,19 @@ if __name__ == '__main__':
           o_query = cv2.resize(o_query, (h, h),interpolation=cv2.INTER_LINEAR)
           im2show = np.concatenate((im2show, o_query), axis=1)
 
-          cv2.imwrite('./test_img/%d_d.png'%(i), im2show)
+          im_save_dir = os.path.join(im_output_dir, post_fix, class_name)
+          if not os.path.exists(im_save_dir):
+            os.makedirs(im_save_dir)
+          
+          im_save_name = os.path.join(im_save_dir, file_name + '_%d_d.png'%(i))
+          cv2.imwrite(im_save_name, im2show)
       
     
       with open(det_file, 'wb') as f:
           pickle.dump(all_boxes, f, pickle.HIGHEST_PROTOCOL)
       
     print('Evaluating detections')
-    imdb_vu.evaluate_detections(all_boxes, output_dir_vu) 
+    imdb_vu.evaluate_detections(all_boxes, output_dir_vu, post_fix) 
 
 
     end = time.time()
