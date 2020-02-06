@@ -237,7 +237,7 @@ class fss_cell(imdb):
     print('~~~~ Summary metrics ~~~~')
     coco_eval.summarize()
 
-  def _do_detection_eval(self, res_file, output_dir):
+  def _do_detection_eval(self, res_file, output_dir, post_fix=None):
     ann_type = 'bbox'
 
     tmp = [i-1 for i in self.list]
@@ -251,8 +251,12 @@ class fss_cell(imdb):
     cocoEval.accumulate()
     cocoEval.summarize(class_index=tmp)
 
-
-    eval_file = osp.join(output_dir, 'detection_results.pkl')
+    if post_fix:
+      eval_file = osp.join(output_dir, ('cocoeval_' + 
+                                        post_fix + 
+                                        '_results.pkl'))
+    else:
+      eval_file = osp.join(output_dir, 'detection_results.pkl')
     with open(eval_file, 'wb') as fid:
       pickle.dump(cocoEval, fid, pickle.HIGHEST_PROTOCOL)
     print('Wrote COCO eval results to: {}'.format(eval_file))
@@ -294,20 +298,24 @@ class fss_cell(imdb):
     with open(res_file, 'w') as fid:
       json.dump(results, fid)
 
-  def evaluate_detections(self, all_boxes, output_dir):
+  def evaluate_detections(self, all_boxes, output_dir, post_fix=None):
 
-
-    res_file = osp.join(output_dir, ('detections_' +
-                                     self._image_set +
-                                     self._year +
-                                     '_results'))
+    if post_fix:
+      res_file = osp.join(output_dir, ('detections_' +
+                                        post_fix + 
+                                        '_results'))
+    else:
+      res_file = osp.join(output_dir, ('detections_' +
+                                      self._image_set +
+                                      self._year +
+                                      '_results'))
     if self.config['use_salt']:
       res_file += '_{}'.format(str(uuid.uuid4()))
     res_file += '.json'
     self._write_coco_results_file(all_boxes, res_file)
     # Only do evaluation on non-test sets
     #if self._image_set.find('test') == -1:
-    self._do_detection_eval(res_file, output_dir)
+    self._do_detection_eval(res_file, output_dir, post_fix)
     # Optionally cleanup results json file
     if self.config['cleanup']:
       os.remove(res_file)
