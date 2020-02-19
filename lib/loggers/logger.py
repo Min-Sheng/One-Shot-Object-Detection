@@ -17,9 +17,10 @@ class Logger:
         
         self.writer = SummaryWriter(log_dir)
 
-    def write(self, step, session, log, sample_batched, pred_boxes, scores):
+    def write(self, step, shot, session, log, sample_batched, pred_boxes, scores):
         """Plot the network architecture and the visualization results.
         Args:
+            shot (int): The number of shots.
             session (int): The number of the session.
             step (int): The number of the step.
             log (dict): The log information.
@@ -28,27 +29,29 @@ class Logger:
             scores (torch.Tensor): The scores of each bbox.
 
         """
-        self._add_scalars(step, session, log)
-        self._add_images(step, session, sample_batched, pred_boxes, scores)
+        self._add_scalars(step, shot, session, log)
+        self._add_images(step, shot, session, sample_batched, pred_boxes, scores)
 
     def close(self):
         """Close the writer.
         """
         self.writer.close()
 
-    def _add_scalars(self, step, session, log):
+    def _add_scalars(self, step, shot, session, log):
         """Plot the training curves.
         Args:
             step (int): The number of the step.
+            shot (int): The number of shots.
             session (int): The number of the session.
             log (dict): The log information.
         """
-        self.writer.add_scalars("logs_s_{}/losses".format(session), log, step)
+        self.writer.add_scalars("logs_{}shot_sess{}/losses".format(shot, session), log, step)
 
-    def _add_images(self, step, session, sample_batched, pred_boxes, scores):
+    def _add_images(self, step, shot, session, sample_batched, pred_boxes, scores):
         """Plot the visualization results.
         Args:
             step (int): The number of the step.
+            shot (int): The number of shots.
             session (int): The number of the session.
             sample_batched (dict): The sample batch.
             pred_boxes (torch.Tensor): The prediction bounding boxes.
@@ -78,7 +81,6 @@ class Logger:
         im = (im *255).astype(np.uint8)
         im = Image.fromarray(im)
 
-        shot = query_batched[0].shape[0]
         querys = []
         for i in range(shot):
 
@@ -140,4 +142,4 @@ class Logger:
 
         train_grid = [to_tensor(im), to_tensor(query_bg), to_tensor(im_gt_bbox), to_tensor(im_pred_bbox)]
         train_grid = make_grid(train_grid, nrow=2, normalize=True, scale_each=True, pad_value=1)
-        self.writer.add_image("logs_s_{}/train".format(session), train_grid, step)
+        self.writer.add_image("logs_{}shot_sess{}/train".format(shot, session), train_grid, step)

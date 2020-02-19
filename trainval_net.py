@@ -388,13 +388,13 @@ if __name__ == '__main__':
           pred_boxes = clip_boxes(pred_boxes, im_info.data, im_data.size(0))
           
           #logger.add_scalars("logs_s_{}/losses".format(args.session), info, (epoch - 1) * iters_per_epoch + step)
-          logger.write((epoch - 1) * iters_per_epoch + step, args.session, info, data, pred_boxes, scores)
+          logger.write((epoch - 1) * iters_per_epoch + step, args.shot, args.session, info, data, pred_boxes, scores)
           
         loss_temp = 0
         start = time.time()
 
     
-    save_name = os.path.join(output_dir, 'faster_rcnn_{}_{}_{}.pth'.format(args.session, epoch, step))
+    save_name = os.path.join(output_dir, 'faster_rcnn_{}shot_sess{}_epoch{}_step{}.pth'.format(args.shot, args.session, epoch, step))
     save_checkpoint({
       'session': args.session,
       'epoch': epoch + 1,
