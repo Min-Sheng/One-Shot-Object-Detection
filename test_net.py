@@ -13,10 +13,14 @@ import pprint
 import pdb
 import time
 import cv2
+from PIL import Image
+from scipy.misc import imread
 import torch
 from torch.autograd import Variable
 import torch.nn as nn
 import torch.optim as optim
+from torchvision.utils import make_grid
+from torchvision import transforms
 import pickle
 from roi_data_layer.roidb import combined_roidb
 from model.utils.config import cfg, cfg_from_file, cfg_from_list, get_output_dir
@@ -27,6 +31,7 @@ from model.rpn.bbox_transform import bbox_transform_inv
 from model.utils.net_utils import save_net, load_net, vis_detections
 from model.faster_rcnn.vgg16 import vgg16
 from model.faster_rcnn.resnet import resnet
+from model.utils.blob import prep_im_for_blob
 
 import pdb
 
@@ -118,7 +123,10 @@ def parse_args():
   parser.add_argument('--a', dest='average', help='average the top_k candidate samples', default=1, type=int)
   parser.add_argument('--g', dest='group',
                       help='which group want to training/testing',
-                      default=0, type=int) 
+                      default=0, type=int)
+  parser.add_argument('--k', dest='shot',
+                      help='k shot query',
+                      default=1, type=int)     
   args = parser.parse_args()
   return args
 
@@ -183,7 +191,7 @@ if __name__ == '__main__':
   cfg.TRAIN.USE_FLIPPED = False
   imdb_vu, roidb_vu, ratio_list_vu, ratio_index_vu, query_vu = combined_roidb(args.imdbval_name, False, seen=args.seen)
   imdb_vu.competition_mode(on=True)
-  dataset_vu = roibatchLoader(roidb_vu, ratio_list_vu, ratio_index_vu, query_vu, 1, imdb_vu.num_classes, training=False, seen=args.seen)
+  dataset_vu = roibatchLoader(roidb_vu, ratio_list_vu, ratio_index_vu, query_vu, 1, imdb_vu.num_classes, training=False, seen=args.seen, shot=args.shot)
 
 
   
@@ -285,7 +293,17 @@ if __name__ == '__main__':
     else:
       for i,index in enumerate(ratio_index_vu[0]):
         data = next(data_iter_vu)
-        im_data.resize_(data[0].size()).copy_(data[0])
+        im = imread(dataset_vu._roidb[dataset_vu.ratio_index[i]]['image'])
+            
+        if len(im.shape) == 2:
+            im = im[:,:,np.newaxis]
+            im = np.concatenate((im,im,im), axis=2)
+        
+        im, im_scale = prep_im_for_blob(im, cfg.PIXEL_MEANS, cfg.TRAIN.SCALES[0], cfg.TRAIN.MAX_SIZE)
+        im = im[np.newaxis,:]
+        im = torch.from_numpy(im).permute(0, 3, 1, 2).contiguous()
+        im_data.resize_(im.size()).copy_(im)
+        #im_data.resize_(data[0].size()).copy_(data[0])
         query.resize_(data[1].size()).copy_(data[1])
         im_info.resize_(data[2].size()).copy_(data[2])
         gt_boxes.resize_(data[3].size()).copy_(data[3])
@@ -383,15 +401,26 @@ if __name__ == '__main__':
           im2show = cv2.imread(im_name)
           im2show = vis_detections(im2show, 'shot', cls_dets.cpu().numpy(), 0.5)
 
-          o_query = data[1][0].permute(1, 2,0).contiguous().cpu().numpy()
-          o_query *= [0.229, 0.224, 0.225]
-          o_query += [0.485, 0.456, 0.406]
-          o_query *= 255
-          o_query = o_query[:,:,::-1]
+          to_tensor = transforms.ToTensor()
+          o_querys=[]
+          for i in range(args.shot):
+            o_query = data[1][0][i].permute(1, 2,0).contiguous().cpu().numpy()
+            o_query *= [0.229, 0.224, 0.225]
+            o_query += [0.485, 0.456, 0.406]
+            o_query *= 255
+            o_query = o_query[:,:,::-1]
+            o_query = Image.fromarray(o_query.astype(np.uint8))
+            o_querys.append(to_tensor(o_query))
 
-          (h,w,c) = im2show.shape
-          o_query = cv2.resize(o_query, (h, h),interpolation=cv2.INTER_LINEAR)
-          im2show = np.concatenate((im2show, o_query), axis=1)
+          o_querys_grid = make_grid(o_querys, nrow=args.shot//2, normalize=True, scale_each=True, pad_value=1)
+          o_querys_grid = transforms.ToPILImage()(o_querys_grid).convert("RGB")
+          query_w, query_h = o_querys_grid.size
+          query_bg = Image.new('RGB', (im2show.shape[1], im2show.shape[0]), (255, 255, 255))
+          bg_w, bg_h = query_bg.size
+          offset = ((bg_w - query_w) // 2, (bg_h - query_h) // 2)
+          query_bg.paste(o_querys_grid, offset)
+          o_querys_grid = np.asarray(query_bg)
+          im2show = np.concatenate((im2show, o_querys_grid), axis=1)
 
           im_save_dir = os.path.join(im_output_dir, post_fix, class_name)
           if not os.path.exists(im_save_dir):

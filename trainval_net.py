@@ -122,7 +122,9 @@ def parse_args():
   parser.add_argument('--use_tfb', dest='use_tfboard',
                       help='whether use tensorboard',
                       default=True)
-
+  parser.add_argument('--k', dest='shot',
+                        help='k shot query',
+                        default=1, type=int)
   args = parser.parse_args()
   return args
 
@@ -208,7 +210,7 @@ if __name__ == '__main__':
   train_size = len(roidb)
   print('{:d} roidb entries'.format(len(roidb)))
   sampler_batch = sampler(train_size, args.batch_size)
-  dataset = roibatchLoader(roidb, ratio_list, ratio_index, query, args.batch_size, imdb.num_classes, training=True)
+  dataset = roibatchLoader(roidb, ratio_list, ratio_index, query, args.batch_size, imdb.num_classes, training=True, shot=args.shot)
   dataloader = torch.utils.data.DataLoader(dataset, batch_size=args.batch_size,
                             sampler=sampler_batch, num_workers=args.num_workers)
 

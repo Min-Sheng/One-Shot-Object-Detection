@@ -24,7 +24,8 @@ import time
 import pdb
 
 class roibatchLoader(data.Dataset):
-  def __init__(self, roidb, ratio_list, ratio_index, query, batch_size, num_classes, training=True, normalize=None, seen=True):
+  def __init__(self, roidb, ratio_list, ratio_index, query, batch_size, num_classes, training=True, normalize=None, seen=True, shot=5):
+    self.shot = shot
     self._roidb = roidb
     self._query = query
     self._num_classes = num_classes
@@ -107,7 +108,7 @@ class roibatchLoader(data.Dataset):
 
     data = torch.from_numpy(blobs['data'])
     query = torch.from_numpy(query)
-    query = query.permute(0, 3, 1, 2).contiguous().squeeze(0)
+    query = query.permute(0, 3, 1, 2).contiguous()
     im_info = torch.from_numpy(blobs['im_info'])
     data_name = blobs['img_name']
 
@@ -266,7 +267,7 @@ class roibatchLoader(data.Dataset):
     if self.training:
         # Random choice query catgory image
         all_data = self._query[choice]
-        data     = random.choice(all_data)
+        k_shot_data = random.sample(all_data, self.shot)
     else:
         # Take out the purpose category for testing
         catgory = self.cat_list[choice]
@@ -280,30 +281,33 @@ class roibatchLoader(data.Dataset):
         random.shuffle(l)
 
         # choose the candidate sequence and take out the data information
-        position=l[self.query_position%len(l)]
-        data     = all_data[position]
+        position=[l[(self.query_position+i)%len(l)] for i in range(self.shot)]
+        k_shot_data = [all_data[i] for i in position]
 
-    # Get image
-    path       = data['image_path']
-    im = imread(path)
+    query = []
+    for data in k_shot_data:
+
+        # Get image
+        path = data['image_path']
+        im = imread(path)
+
+        if len(im.shape) == 2:
+            im = im[:,:,np.newaxis]
+            im = np.concatenate((im,im,im), axis=2)
+
+        im = crop(im, data['boxes'], cfg.TRAIN.query_size)
+        # flip the channel, since the original one using cv2
+        # rgb -> bgr
+        # im = im[:,:,::-1]
+        if random.randint(0,99)/100 > 0.5 and self.training:
+            im = im[:, ::-1, :]
+
+
+        im, im_scale = prep_im_for_blob(im, cfg.PIXEL_MEANS, cfg.TRAIN.query_size,
+                        cfg.TRAIN.MAX_SIZE)
     
-
-    if len(im.shape) == 2:
-      im = im[:,:,np.newaxis]
-      im = np.concatenate((im,im,im), axis=2)
-
-    im = crop(im, data['boxes'], cfg.TRAIN.query_size)
-    # flip the channel, since the original one using cv2
-    # rgb -> bgr
-    # im = im[:,:,::-1]
-    if random.randint(0,99)/100 > 0.5 and self.training:
-      im = im[:, ::-1, :]
-
-
-    im, im_scale = prep_im_for_blob(im, cfg.PIXEL_MEANS, cfg.TRAIN.query_size,
-                    cfg.TRAIN.MAX_SIZE)
-    
-    query = im_list_to_blob([im])
+        query.append(im_list_to_blob([im]).squeeze(0))
+    query = np.stack(query, axis=0)
 
     return query
 

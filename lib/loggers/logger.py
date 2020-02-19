@@ -78,16 +78,23 @@ class Logger:
         im = (im *255).astype(np.uint8)
         im = Image.fromarray(im)
 
-        query = inv_normalize(query_batched[0]).permute(1, 2, 0).data.numpy()
-        query = (query - query.max()) / (query.max() - query.min())
-        query = (query *255).astype(np.uint8)
-        query = Image.fromarray(query)
+        shot = query_batched[0].shape[0]
+        querys = []
+        for i in range(shot):
 
-        query_w, query_h = query.size
-        query_bg = Image.new('RGB', (im.size), (0, 0, 0))
+            query = inv_normalize(query_batched[0][i]).permute(1, 2, 0).data.numpy()
+            query = (query - query.max()) / (query.max() - query.min())
+            query = (query *255).astype(np.uint8)
+            query = Image.fromarray(query)
+            querys.append(to_tensor(query))
+
+        querys_grid = make_grid(querys, nrow=shot//2, normalize=True, scale_each=True, pad_value=1)
+        querys_grid = transforms.ToPILImage()(querys_grid).convert("RGB")
+        query_w, query_h = querys_grid.size
+        query_bg = Image.new('RGB', (im.size), (255, 255, 255))
         bg_w, bg_h = query_bg.size
         offset = ((bg_w - query_w) // 2, (bg_h - query_h) // 2)
-        query_bg.paste(query, offset)
+        query_bg.paste(querys_grid, offset)
 
         im_gt_bbox = im.copy()
         im_pred_bbox = im.copy()
