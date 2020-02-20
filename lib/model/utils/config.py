@@ -18,8 +18,6 @@ cfg = __C
 #
 __C.TRAIN = edict()
 
-
-# Initial learning rate
 __C.TRAIN.MARGIN = -0.3
 
 # Initial learning rate
