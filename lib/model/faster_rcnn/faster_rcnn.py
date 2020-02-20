@@ -153,7 +153,6 @@ class _fasterRCNN(nn.Module):
 
     def forward(self, im_data, query, im_info, gt_boxes, num_boxes):
         batch_size = im_data.size(0)
-        query = query.permute(1,0,2,3,4)
 
         im_info = im_info.data
         gt_boxes = gt_boxes.data
@@ -163,10 +162,10 @@ class _fasterRCNN(nn.Module):
         detect_feat = self.RCNN_base(im_data)
 
         query_feat = []
-        for shot in range(query.size(0)):
+        for shot in range(len(query)):
             query_feat.append(self.RCNN_base(query[shot]))
-        query_feat = torch.stack(query_feat).permute(1,0,2,3,4)
-        query_feat, _ = torch.max(query_feat, 1)
+        query_feat = torch.stack(query_feat)
+        query_feat = torch.mean(query_feat, 1)
 
         rpn_feat, act_feat, act_aim, c_weight = self.match_net(detect_feat, query_feat)
 

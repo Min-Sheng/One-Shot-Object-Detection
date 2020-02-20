@@ -109,6 +109,9 @@ def parse_args():
   parser.add_argument('--r', dest='resume',
                       help='resume checkpoint or not',
                       default=False, type=bool)
+  parser.add_argument('--checkshot', dest='checkshot',
+                      help='checkshot to load model',
+                      default=1, type=int)
   parser.add_argument('--checksession', dest='checksession',
                       help='checksession to load model',
                       default=1, type=int)
@@ -199,7 +202,7 @@ if __name__ == '__main__':
   #torch.backends.cudnn.benchmark = True
   if torch.cuda.is_available() and not args.cuda:
     print("WARNING: You have a CUDA device, so you should probably run with --cuda")
-
+  device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
   # train set
   # -- Note: Use validation set and disable the flipped to enable faster loading.
   cfg.TRAIN.USE_FLIPPED = True
@@ -220,27 +223,27 @@ if __name__ == '__main__':
     os.makedirs(output_dir)
 
   # initilize the tensor holder here.
-  im_data = torch.FloatTensor(1)
-  query   = torch.FloatTensor(1)
-  im_info = torch.FloatTensor(1)
-  num_boxes = torch.LongTensor(1)
-  gt_boxes = torch.FloatTensor(1)
+  #im_data = torch.FloatTensor(1)
+  #query   = torch.FloatTensor(1)
+  #im_info = torch.FloatTensor(1)
+  #num_boxes = torch.LongTensor(1)
+  #gt_boxes = torch.FloatTensor(1)
 
   # ship to cuda
   if args.cuda:
-    im_data = im_data.cuda()
-    query   = query.cuda()
-    im_info = im_info.cuda()
-    num_boxes = num_boxes.cuda()
-    gt_boxes = gt_boxes.cuda()
+    #im_data = im_data.cuda()
+    #query   = query.cuda()
+    #im_info = im_info.cuda()
+    #num_boxes = num_boxes.cuda()
+    #gt_boxes = gt_boxes.cuda()
     cfg.CUDA = True
-
+  
   # make variable
-  im_data = Variable(im_data)
-  query   = Variable(query)
-  im_info = Variable(im_info)
-  num_boxes = Variable(num_boxes)
-  gt_boxes = Variable(gt_boxes)
+  #im_data = Variable(im_data)
+  #query   = Variable(query)
+  #im_info = Variable(im_info)
+  #num_boxes = Variable(num_boxes)
+  #gt_boxes = Variable(gt_boxes)
 
 
   # initilize the network here.
@@ -268,8 +271,8 @@ if __name__ == '__main__':
       else:
         params += [{'params':[value],'lr':lr, 'weight_decay': cfg.TRAIN.WEIGHT_DECAY}]
 
-  if args.cuda:
-    fasterRCNN.cuda()
+  #if args.cuda:
+    #fasterRCNN.cuda()
       
   if args.optimizer == "adam":
     lr = lr * 0.1
@@ -279,9 +282,10 @@ if __name__ == '__main__':
 
   if args.resume:
     load_name = os.path.join(output_dir,
-      'faster_rcnn_{}_{}_{}.pth'.format(args.checksession, args.checkepoch, args.checkpoint))
+      'faster_rcnn_{}shot_sess{}_epoch{}_step{}.pth'.format(args.checkshot, args.checksession, args.checkepoch, args.checkpoint))
     print("loading checkpoint %s" % (load_name))
     checkpoint = torch.load(load_name)
+    args.shot = checkpoint['shot']
     args.session = checkpoint['session']
     args.start_epoch = checkpoint['epoch']
     fasterRCNN.load_state_dict(checkpoint['model'])
@@ -293,6 +297,7 @@ if __name__ == '__main__':
 
   if args.mGPUs:
     fasterRCNN = nn.DataParallel(fasterRCNN)
+  fasterRCNN.to(device)
 
   iters_per_epoch = int(train_size / args.batch_size)
   
@@ -316,11 +321,16 @@ if __name__ == '__main__':
     
     for step in range(iters_per_epoch):
       data = next(data_iter)
-      im_data.resize_(data[0].size()).copy_(data[0])
-      query.resize_(data[1].size()).copy_(data[1])
-      im_info.resize_(data[2].size()).copy_(data[2])
-      gt_boxes.resize_(data[3].size()).copy_(data[3])
-      num_boxes.resize_(data[4].size()).copy_(data[4])
+      #im_data.resize_(data[0].size()).copy_(data[0])
+      #query.resize_(data[1].size()).copy_(data[1])
+      #im_info.resize_(data[2].size()).copy_(data[2])
+      #gt_boxes.resize_(data[3].size()).copy_(data[3])
+      #num_boxes.resize_(data[4].size()).copy_(data[4])
+      im_data = data[0].float().to(device)
+      query = [data[1][i].float().to(device) for i in range(len(data[1]))]
+      im_info = data[2].float().to(device)
+      gt_boxes = data[3].float().to(device)
+      num_boxes = data[4].long().to(device)
 
       fasterRCNN.zero_grad()
       rois, cls_prob, bbox_pred, \
@@ -382,8 +392,8 @@ if __name__ == '__main__':
           box_deltas = bbox_pred.data
           if cfg.TRAIN.BBOX_NORMALIZE_TARGETS_PRECOMPUTED:
           # Optionally normalize targets by a precomputed mean and stdev
-            box_deltas = box_deltas * torch.FloatTensor(cfg.TRAIN.BBOX_NORMALIZE_STDS).cuda() \
-                      + torch.FloatTensor(cfg.TRAIN.BBOX_NORMALIZE_MEANS).cuda()
+            box_deltas = box_deltas * torch.FloatTensor(cfg.TRAIN.BBOX_NORMALIZE_STDS).to(device) \
+                      + torch.FloatTensor(cfg.TRAIN.BBOX_NORMALIZE_MEANS).to(device)
           pred_boxes = bbox_transform_inv(boxes, box_deltas, im_data.size(0))
           pred_boxes = clip_boxes(pred_boxes, im_info.data, im_data.size(0))
           
@@ -396,6 +406,7 @@ if __name__ == '__main__':
     
     save_name = os.path.join(output_dir, 'faster_rcnn_{}shot_sess{}_epoch{}_step{}.pth'.format(args.shot, args.session, epoch, step))
     save_checkpoint({
+      'shot': args.shot, 
       'session': args.session,
       'epoch': epoch + 1,
       'model': fasterRCNN.module.state_dict() if args.mGPUs else fasterRCNN.state_dict(),

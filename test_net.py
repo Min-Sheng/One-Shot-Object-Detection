@@ -124,9 +124,12 @@ def parse_args():
   parser.add_argument('--g', dest='group',
                       help='which group want to training/testing',
                       default=0, type=int)
-  parser.add_argument('--k', dest='shot',
+  parser.add_argument('--k', dest='checkshot',
                       help='k shot query',
-                      default=1, type=int)     
+                      default=1, type=int)
+  parser.add_argument('--w', dest='overwrite',
+                      help='whether overwrite the results',
+                      default=True)
   args = parser.parse_args()
   return args
 
@@ -143,7 +146,7 @@ if __name__ == '__main__':
 
   if torch.cuda.is_available() and not args.cuda:
     print("WARNING: You have a CUDA device, so you should probably run with --cuda")
-
+  device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
   np.random.seed(cfg.RNG_SEED)
   if args.dataset == "pascal_voc":
       from roi_data_layer.pascal_oneshot_roibatchLoader import roibatchLoader
@@ -191,7 +194,7 @@ if __name__ == '__main__':
   cfg.TRAIN.USE_FLIPPED = False
   imdb_vu, roidb_vu, ratio_list_vu, ratio_index_vu, query_vu = combined_roidb(args.imdbval_name, False, seen=args.seen)
   imdb_vu.competition_mode(on=True)
-  dataset_vu = roibatchLoader(roidb_vu, ratio_list_vu, ratio_index_vu, query_vu, 1, imdb_vu.num_classes, training=False, seen=args.seen, shot=args.shot)
+  dataset_vu = roibatchLoader(roidb_vu, ratio_list_vu, ratio_index_vu, query_vu, 1, imdb_vu.num_classes, training=False, seen=args.seen, shot=args.checkshot)
 
 
   
@@ -215,7 +218,7 @@ if __name__ == '__main__':
     raise Exception('There is no input directory for loading network from ' + input_dir)
 
   load_name = os.path.join(input_dir,
-    'faster_rcnn_{}_{}_{}.pth'.format(args.checksession, args.checkepoch, args.checkpoint))
+    'faster_rcnn_{}shot_sess{}_epoch{}_step{}.pth'.format(args.checkshot, args.checksession, args.checkepoch, args.checkpoint))
   print("load checkpoint %s" % (load_name))
   checkpoint = torch.load(load_name)
   fasterRCNN.load_state_dict(checkpoint['model'])
@@ -224,28 +227,28 @@ if __name__ == '__main__':
 
   # initilize the tensor holder here.
   print('load model successfully!')
-  im_data = torch.FloatTensor(1)
-  query   = torch.FloatTensor(1)
-  im_info = torch.FloatTensor(1)
-  catgory = torch.LongTensor(1)
-  gt_boxes = torch.FloatTensor(1)
+  #im_data = torch.FloatTensor(1)
+  #query   = torch.FloatTensor(1)
+  #im_info = torch.FloatTensor(1)
+  #catgory = torch.LongTensor(1)
+  #gt_boxes = torch.FloatTensor(1)
 
   # ship to cuda
   if args.cuda:
     cfg.CUDA = True
-    fasterRCNN.cuda()
-    im_data = im_data.cuda()
-    query = query.cuda()
-    im_info = im_info.cuda()
-    catgory = catgory.cuda()
-    gt_boxes = gt_boxes.cuda()
+  fasterRCNN.to(device)
+    #im_data = im_data.cuda()
+    #query = query.cuda()
+    #im_info = im_info.cuda()
+    #catgory = catgory.cuda()
+    #gt_boxes = gt_boxes.cuda()
 
   # make variable
-  im_data = Variable(im_data)
-  query = Variable(query)
-  im_info = Variable(im_info)
-  catgory = Variable(catgory)
-  gt_boxes = Variable(gt_boxes)
+  #im_data = Variable(im_data)
+  #query = Variable(query)
+  #im_info = Variable(im_info)
+  #catgory = Variable(catgory)
+  #gt_boxes = Variable(gt_boxes)
     
   # record time
   start = time.time()
@@ -273,11 +276,7 @@ if __name__ == '__main__':
 
     
     _t = {'im_detect': time.time(), 'misc': time.time()}
-    if args.group != 0:
-      post_fix = 'sess%d_g%d_seen%d_%d'%(args.checksession, args.group, args.seen, avg)
-    else:
-      post_fix = 'sess%d_seen%d_%d'%(args.checksession, args.seen, avg)
-
+    post_fix = '%dshot_sess%d_g%d_seen%d_%d'%(args.checkshot, args.checksession, args.group, args.seen, avg)
     if vis:
       thresh = 0.05
       im_output_dir = os.path.abspath(os.path.join(cfg.ROOT_DIR, 'test_img', cfg.EXP_DIR, imdb_vu.name))
@@ -287,7 +286,7 @@ if __name__ == '__main__':
       thresh = 0.0
     det_file = os.path.join(output_dir_vu, 'detections_' + post_fix + '.pkl')
     
-    if os.path.exists(det_file):
+    if os.path.exists(det_file) and not args.overwrite:
       with open(det_file, 'rb') as fid:
         all_boxes = pickle.load(fid)
     else:
@@ -301,13 +300,17 @@ if __name__ == '__main__':
         
         im, im_scale = prep_im_for_blob(im, cfg.PIXEL_MEANS, cfg.TRAIN.SCALES[0], cfg.TRAIN.MAX_SIZE)
         im = im[np.newaxis,:]
-        im = torch.from_numpy(im).permute(0, 3, 1, 2).contiguous()
-        im_data.resize_(im.size()).copy_(im)
+        im_data = torch.from_numpy(im).permute(0, 3, 1, 2).contiguous().float().to(device)
+        query = [data[1][i].float().to(device) for i in range(len(data[1]))]
+        im_info = data[2].float().to(device)
+        gt_boxes = data[3].float().to(device)
+        catgory = data[4].long().to(device)
+        #im_data.resize_(im.size()).copy_(im)
         #im_data.resize_(data[0].size()).copy_(data[0])
-        query.resize_(data[1].size()).copy_(data[1])
-        im_info.resize_(data[2].size()).copy_(data[2])
-        gt_boxes.resize_(data[3].size()).copy_(data[3])
-        catgory.resize_(data[4].size()).copy_(data[4])
+        #query.resize_(data[1].size()).copy_(data[1])
+        #im_info.resize_(data[2].size()).copy_(data[2])
+        #gt_boxes.resize_(data[3].size()).copy_(data[3])
+        #catgory.resize_(data[4].size()).copy_(data[4])
 
 
         # Run Testing
@@ -395,15 +398,17 @@ if __name__ == '__main__':
         # save test image
         if vis and i%1==0:
           im_name = dataset_vu._roidb[dataset_vu.ratio_index[i]]['image']
+          gt_bbox = dataset_vu._roidb[dataset_vu.ratio_index[i]]['boxes']
           class_name = im_name.split('/')[-4]
           file_name = im_name.split('/')[-3]
 
-          im2show = cv2.imread(im_name)
-          im2show = vis_detections(im2show, 'shot', cls_dets.cpu().numpy(), 0.5)
+          im_target = cv2.imread(im_name)
+          im2draw = im_target.copy()
+          im2draw = vis_detections(im2draw, gt_bbox, cls_dets.cpu().numpy(), 0.5)
 
           to_tensor = transforms.ToTensor()
           o_querys=[]
-          for i in range(args.shot):
+          for i in range(args.checkshot):
             o_query = data[1][0][i].permute(1, 2,0).contiguous().cpu().numpy()
             o_query *= [0.229, 0.224, 0.225]
             o_query += [0.485, 0.456, 0.406]
@@ -412,15 +417,16 @@ if __name__ == '__main__':
             o_query = Image.fromarray(o_query.astype(np.uint8))
             o_querys.append(to_tensor(o_query))
 
-          o_querys_grid = make_grid(o_querys, nrow=args.shot//2, normalize=True, scale_each=True, pad_value=1)
+          o_querys_grid = make_grid(o_querys, nrow=args.checkshot//2, normalize=True, scale_each=True, pad_value=1)
           o_querys_grid = transforms.ToPILImage()(o_querys_grid).convert("RGB")
           query_w, query_h = o_querys_grid.size
-          query_bg = Image.new('RGB', (im2show.shape[1], im2show.shape[0]), (255, 255, 255))
+          query_bg = Image.new('RGB', (im_target.shape[1], im_target.shape[0]), (255, 255, 255))
           bg_w, bg_h = query_bg.size
           offset = ((bg_w - query_w) // 2, (bg_h - query_h) // 2)
           query_bg.paste(o_querys_grid, offset)
           o_querys_grid = np.asarray(query_bg)
-          im2show = np.concatenate((im2show, o_querys_grid), axis=1)
+          im_pair = np.concatenate((im_target, o_querys_grid), axis=1)
+          im2show = np.concatenate((im_pair, im2draw), axis=0)
 
           im_save_dir = os.path.join(im_output_dir, post_fix, class_name)
           if not os.path.exists(im_save_dir):
