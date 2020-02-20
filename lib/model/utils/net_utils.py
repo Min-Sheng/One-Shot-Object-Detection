@@ -47,13 +47,18 @@ def clip_gradient(model, clip_norm):
         if p.requires_grad:
             p.grad.mul_(norm)
 
-def vis_detections(im, class_name, dets, thresh=0.5):
+def vis_detections(im, gt_bbox, dets, thresh=0.5):
     """Visual debugging of detections."""
+    im2 = im.copy()
+    for i in range(gt_bbox.shape[0]):
+        bbox = tuple(int(np.round(x)) for x in gt_bbox[i, :4])
+        cv2.rectangle(im2, bbox[0:2], bbox[2:4], (0, 255, 110), 1)
+        
     for i in range(dets.shape[0]):
         bbox = tuple(int(np.round(x)) for x in dets[i, :4])
         score = dets[i, -1]
         if score > thresh:
-            cv2.rectangle(im, bbox[0:2], bbox[2:4], (0, 110, 255), 1)
+            cv2.rectangle(im, bbox[0:2], bbox[2:4], (255, 255, 110), 1)
 
             #text = '%.3f' % (score)
 
@@ -62,6 +67,7 @@ def vis_detections(im, class_name, dets, thresh=0.5):
             #cv2.rectangle(im, (bbox[0], bbox[1] ), (bbox[0]+text_width, bbox[1] + text_height), (0, 255, 251), -1)
 
             #cv2.putText(im,text , (bbox[0], bbox[1]+text_height), cv2.FONT_HERSHEY_TRIPLEX, 1.2, (0, 0, 0), thickness=2)
+    im = np.concatenate((im2, im), axis=1)
     return im
 
 def adjust_learning_rate(optimizer, decay=0.1):
