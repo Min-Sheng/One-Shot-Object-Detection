@@ -55,10 +55,6 @@ def parse_args():
   parser.add_argument('--disp_interval', dest='disp_interval',
                       help='number of iterations to display',
                       default=10, type=int)
-  parser.add_argument('--checkpoint_interval', dest='checkpoint_interval',
-                      help='number of iterations to display',
-                      default=10000, type=int)
-
   parser.add_argument('--save_dir', dest='save_dir',
                       help='directory to save models', default="models",
                       type=str)
@@ -95,7 +91,7 @@ def parse_args():
                       default=0.01, type=float)
   parser.add_argument('--lr_decay_step', dest='lr_decay_step',
                       help='step to do learning rate decay, unit is epoch',
-                      default=4, type=int)
+                      default=10, type=int)
   parser.add_argument('--lr_decay_gamma', dest='lr_decay_gamma',
                       help='learning rate decay ratio',
                       default=0.1, type=float)
