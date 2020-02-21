@@ -48,26 +48,34 @@ def prepare_roidb(imdb):
 
 def rank_roidb_ratio(roidb):
     # rank roidb based on the ratio between width and height.
-    ratio_large = 2 # largest ratio to preserve.
-    ratio_small = 0.5 # smallest ratio to preserve.    
+    RATIO_HI = cfg.TRAIN.ASPECT_HI  # largest ratio to preserve.
+    RATIO_LO = cfg.TRAIN.ASPECT_LO  # smallest ratio to preserve.
     
+    need_crop_cnt = 0
     ratio_list = []
     for i in range(len(roidb)):
       width = roidb[i]['width']
       height = roidb[i]['height']
       ratio = width / float(height)
 
-      if ratio > ratio_large:
-        roidb[i]['need_crop'] = 1
-        ratio = ratio_large
-      elif ratio < ratio_small:
-        roidb[i]['need_crop'] = 1
-        ratio = ratio_small        
+      if cfg.TRAIN.ASPECT_CROPPING:
+        if ratio > RATIO_HI:
+            roidb[i]['need_crop'] = 1
+            ratio = RATIO_HI
+            need_crop_cnt += 1
+        elif ratio < RATIO_LO:
+            roidb[i]['need_crop'] = 1
+            ratio = RATIO_LO
+            need_crop_cnt += 1
+        else:
+            roidb[i]['need_crop'] = 0
       else:
-        roidb[i]['need_crop'] = 0
+          roidb[i]['need_crop'] = 0
 
       ratio_list.append(ratio)
 
+    if cfg.TRAIN.ASPECT_CROPPING:
+      print('Number of entries that need to be cropped: {:d}. Ratio bound: [{:.2f}, {:.2f}]'.format(need_crop_cnt, RATIO_LO, RATIO_HI))
     ratio_list = np.array(ratio_list)
     ratio_index = np.argsort(ratio_list)
     return ratio_list[ratio_index], ratio_index
@@ -87,8 +95,8 @@ def filter_roidb(roidb):
 
 def test_rank_roidb_ratio(roidb, reserved):
     # rank roidb based on the ratio between width and height.
-    ratio_large = 2 # largest ratio to preserve.
-    ratio_small = 0.5 # smallest ratio to preserve.  
+    RATIO_HI = cfg.TEST.ASPECT_HI  # largest ratio to preserve.
+    RATIO_LO = cfg.TEST.ASPECT_LO  # smallest ratio to preserve.
     
 
     # Image can show more than one time for test different category 
@@ -100,15 +108,19 @@ def test_rank_roidb_ratio(roidb, reserved):
       height = roidb[i]['height']
       ratio = width / float(height)
 
-      if ratio > ratio_large:
-        roidb[i]['need_crop'] = 1
-        ratio = ratio_large
-      elif ratio < ratio_small:
-        roidb[i]['need_crop'] = 1
-        ratio = ratio_small        
+      if cfg.TEST.ASPECT_CROPPING:
+        if ratio > RATIO_HI:
+            roidb[i]['need_crop'] = 1
+            ratio = RATIO_HI
+            need_crop_cnt += 1
+        elif ratio < RATIO_LO:
+            roidb[i]['need_crop'] = 1
+            ratio = RATIO_LO
+            need_crop_cnt += 1
+        else:
+            roidb[i]['need_crop'] = 0
       else:
-        roidb[i]['need_crop'] = 0
-
+          roidb[i]['need_crop'] = 0
 
       for j in np.unique(roidb[i]['max_classes']):
         if j in reserved:
@@ -116,7 +128,8 @@ def test_rank_roidb_ratio(roidb, reserved):
           ratio_index.append(i)
           cat_list.append(j)
 
-
+    if cfg.TEST.ASPECT_CROPPING:
+        print('Number of entries that need to be cropped: {:d}. Ratio bound: [{:.2f}, {:.2f}]'.format(need_crop_cnt, RATIO_LO, RATIO_HI))
     ratio_list = np.array(ratio_list)
     ratio_index = np.array(ratio_index)
     cat_list = np.array(cat_list)

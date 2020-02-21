@@ -124,6 +124,11 @@ __C.TRAIN.BBOX_NORMALIZE_STDS = (0.1, 0.1, 0.2, 0.2)
 # Train using these proposals
 __C.TRAIN.PROPOSAL_METHOD = 'gt'
 
+# Crop images that have too small or too large aspect ratio
+__C.TRAIN.ASPECT_CROPPING = True #False
+__C.TRAIN.ASPECT_HI = 2
+__C.TRAIN.ASPECT_LO = 0.5
+
 # Make minibatches from images that have similar aspect ratios (i.e. both
 # tall and thin or both short and wide) in order to avoid wasting computation
 # on zero-padding.
@@ -208,6 +213,10 @@ __C.TEST.MODE = 'nms'
 # Only useful when TEST.MODE is 'top', specifies the number of top proposals to select
 __C.TEST.RPN_TOP_N = 5000
 
+# Crop images that have too small or too large aspect ratio
+__C.TEST.ASPECT_CROPPING = False
+__C.TEST.ASPECT_HI = 2
+__C.TEST.ASPECT_LO = 0.5
 #
 # ResNet options
 #
