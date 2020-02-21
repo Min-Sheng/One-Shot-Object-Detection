@@ -23,6 +23,7 @@ import uuid
 from pycocotools.coco import COCO
 from pycocotools.cocoeval import COCOeval
 from pycocotools import mask as COCOmask
+from collections import OrderedDict
 
 class fss_cell(imdb):
   def __init__(self, image_set, year):
@@ -71,6 +72,7 @@ class fss_cell(imdb):
     Load image ids.
     """
     image_ids = self._COCO.getImgIds()
+    image_ids.sort()
     return image_ids
 
   def _get_widths(self):
@@ -237,7 +239,7 @@ class fss_cell(imdb):
     print('~~~~ Summary metrics ~~~~')
     coco_eval.summarize()
 
-  def _do_detection_eval(self, res_file, output_dir, post_fix=None):
+  def _do_detection_eval(self, res_file, output_dir, post_fix=None, save=False):
     ann_type = 'bbox'
 
     tmp = [i-1 for i in self.list]
@@ -257,9 +259,11 @@ class fss_cell(imdb):
                                         '_results.pkl'))
     else:
       eval_file = osp.join(output_dir, 'detection_results.pkl')
-    with open(eval_file, 'wb') as fid:
-      pickle.dump(cocoEval, fid, pickle.HIGHEST_PROTOCOL)
-    print('Wrote COCO eval results to: {}'.format(eval_file))
+    if save:
+      with open(eval_file, 'wb') as fid:
+        pickle.dump(cocoEval, fid, pickle.HIGHEST_PROTOCOL)
+      print('Wrote COCO eval results to: {}'.format(eval_file))
+    return cocoEval
 
   def _coco_results_one_category(self, boxes, cat_id):
     results = []
@@ -298,7 +302,7 @@ class fss_cell(imdb):
     with open(res_file, 'w') as fid:
       json.dump(results, fid)
 
-  def evaluate_detections(self, all_boxes, output_dir, post_fix=None):
+  def evaluate_detections(self, all_boxes, output_dir, post_fix=None, save=False):
 
     if post_fix:
       res_file = osp.join(output_dir, ('detections_' +
@@ -315,10 +319,13 @@ class fss_cell(imdb):
     self._write_coco_results_file(all_boxes, res_file)
     # Only do evaluation on non-test sets
     #if self._image_set.find('test') == -1:
-    self._do_detection_eval(res_file, output_dir, post_fix)
+    coco_eval = self._do_detection_eval(res_file, output_dir, post_fix, save)
     # Optionally cleanup results json file
     if self.config['cleanup']:
       os.remove(res_file)
+    box_results = _coco_eval_to_box_results(coco_eval)
+    self.log_copy_paste_friendly_results(box_results)
+    return box_results
 
   def competition_mode(self, on):
     if on:
@@ -381,6 +388,17 @@ class fss_cell(imdb):
       self._image_index.pop(index)
       self.roidb.pop(index)
   
+  def log_copy_paste_friendly_results(self, results):
+    """Log results in a format that makes it easy to copy-and-paste in a
+    spreadsheet. Lines are prefixed with 'copypaste: ' to make grepping easy.
+    """
+    for task, metrics in results.items():
+        print('copypaste: Task: {}'.format(task))
+        metric_names = metrics.keys()
+        metric_vals = ['{:.4f}'.format(v) for v in metrics.values()]
+        print('copypaste: ' + ','.join(metric_names))
+        print('copypaste: ' + ','.join(metric_vals))
+
 
 class customCOCOeval(COCOeval):
     
@@ -585,3 +603,43 @@ class customCOCOeval(COCOeval):
 
     def __str__(self, cass_index=None):
         self.summarize(class_index)
+
+# Indices in the stats array for COCO boxes and masks
+COCO_AP = 0
+COCO_AP50 = 1
+COCO_AP75 = 2
+COCO_APS = 3
+COCO_APM = 4
+COCO_APL = 5
+
+# ---------------------------------------------------------------------------- #
+# Helper functions for producing properly formatted results.
+# ---------------------------------------------------------------------------- #
+
+def _coco_eval_to_box_results(coco_eval):
+    res = _empty_box_results()
+    if coco_eval is not None:
+        s = coco_eval.stats
+        res['box']['AP'] = s[COCO_AP]
+        res['box']['AP50'] = s[COCO_AP50]
+        res['box']['AP75'] = s[COCO_AP75]
+        res['box']['APs'] = s[COCO_APS]
+        res['box']['APm'] = s[COCO_APM]
+        res['box']['APl'] = s[COCO_APL]
+    return res
+
+
+def _empty_box_results():
+    return OrderedDict({
+        'box':
+        OrderedDict(
+            [
+                ('AP', -1),
+                ('AP50', -1),
+                ('AP75', -1),
+                ('APs', -1),
+                ('APm', -1),
+                ('APl', -1),
+            ]
+        )
+    })

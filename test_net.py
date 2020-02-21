@@ -32,6 +32,8 @@ from model.utils.net_utils import save_net, load_net, vis_detections
 from model.faster_rcnn.vgg16 import vgg16
 from model.faster_rcnn.resnet import resnet
 from model.utils.blob import prep_im_for_blob
+from collections import OrderedDict
+import json
 
 import pdb
 
@@ -129,7 +131,10 @@ def parse_args():
                       default=1, type=int)
   parser.add_argument('--w', dest='overwrite',
                       help='whether overwrite the results',
-                      default=True)
+                      action='store_true')
+  parser.add_argument('--save', dest='save',
+                      help='whether save the results',
+                      action='store_true')
   args = parser.parse_args()
   return args
 
@@ -260,6 +265,19 @@ if __name__ == '__main__':
   # create output Directory
   output_dir_vu = get_output_dir(imdb_vu, 'faster_rcnn_unseen')
 
+  all_results = OrderedDict({
+        'box':
+        OrderedDict(
+            [
+                ('AP', []),
+                ('AP50', []),
+                ('AP75', []),
+                ('APs', []),
+                ('APm', []),
+                ('APl', []),
+            ]
+        )
+    })
   fasterRCNN.eval()
   for avg in range(args.average):
     dataset_vu.query_position = avg
@@ -435,13 +453,25 @@ if __name__ == '__main__':
           im_save_name = os.path.join(im_save_dir, file_name + '_%d_d.png'%(i))
           cv2.imwrite(im_save_name, im2show)
       
-    
-      with open(det_file, 'wb') as f:
-          pickle.dump(all_boxes, f, pickle.HIGHEST_PROTOCOL)
+      if args.save:
+        with open(det_file, 'wb') as f:
+            pickle.dump(all_boxes, f, pickle.HIGHEST_PROTOCOL)
       
     print('Evaluating detections')
-    imdb_vu.evaluate_detections(all_boxes, output_dir_vu, post_fix) 
-
-
-    end = time.time()
-    print("test time: %0.4fs" % (end - start))
+    results = imdb_vu.evaluate_detections(all_boxes, output_dir_vu, post_fix, args.save) 
+    for task, metrics in results.items():
+        metric_names = metrics.keys()
+        for metric_name in metric_names:
+          all_results[task][metric_name].append(results[task][metric_name])
+  
+  for task, metrics in all_results.items():
+    metric_names = metrics.keys()
+    for metric_name in metric_names:
+      values = all_results[task][metric_name]
+      all_results[task][metric_name] = sum(values) / len(values) 
+  imdb_vu.log_copy_paste_friendly_results(all_results)
+  avg_results_path = os.path.join(output_dir_vu, ('avg_cocoeval_' + post_fix + '_results.json'))
+  with open(avg_results_path, 'w') as f:
+    f.write(json.dumps(all_results))
+  end = time.time()
+  print("test time: %0.4fs" % (end - start))
