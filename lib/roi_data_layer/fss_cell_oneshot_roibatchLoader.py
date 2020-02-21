@@ -99,13 +99,12 @@ class roibatchLoader(data.Dataset):
         # Delete useless gt_boxes
         blobs['gt_boxes'][:,-1] = np.where(blobs['gt_boxes'][:,-1]==choice,1,0)
         # Get query image
-        query = self.load_query(choice)
+        querys = self.load_query(choice)
     else:
-        query = self.load_query(index, minibatch_db[0]['img_id'])
+        querys = self.load_query(index, minibatch_db[0]['img_id'])
 
     data = torch.from_numpy(blobs['data'])
-    query = torch.from_numpy(query)
-    query = query.permute(0, 3, 1, 2).contiguous()
+    query = [torch.from_numpy(query).permute(2, 0, 1).contiguous() for query in querys]
     im_info = torch.from_numpy(blobs['im_info'])
     data_name = blobs['img_name']
 
@@ -304,7 +303,6 @@ class roibatchLoader(data.Dataset):
                         cfg.TRAIN.MAX_SIZE)
     
         query.append(im_list_to_blob([im]).squeeze(0))
-    query = np.stack(query, axis=0)
 
     return query
 

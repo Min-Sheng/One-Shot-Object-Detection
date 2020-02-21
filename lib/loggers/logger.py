@@ -64,7 +64,7 @@ class Logger:
         to_tensor = transforms.ToTensor()
 
         im_batched = sample_batched[0].float()
-        query_batched = sample_batched[1].float()
+        query_batched = sample_batched[1]
         im_info_batched = sample_batched[2].float()
         gt_boxes_batched = sample_batched[3].float()
         num_boxes_batched = sample_batched[4].float()
@@ -84,7 +84,7 @@ class Logger:
         querys = []
         for i in range(shot):
 
-            query = inv_normalize(query_batched[0][i]).permute(1, 2, 0).data.numpy()
+            query = inv_normalize(query_batched[i][0].float()).permute(1, 2, 0).data.numpy()
             query = (query - query.max()) / (query.max() - query.min())
             query = (query *255).astype(np.uint8)
             query = Image.fromarray(query)

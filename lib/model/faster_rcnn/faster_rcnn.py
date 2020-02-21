@@ -165,7 +165,7 @@ class _fasterRCNN(nn.Module):
         for shot in range(len(query)):
             query_feat.append(self.RCNN_base(query[shot]))
         query_feat = torch.stack(query_feat)
-        query_feat = torch.mean(query_feat, 1)
+        query_feat = torch.mean(query_feat, 0)
 
         rpn_feat, act_feat, act_aim, c_weight = self.match_net(detect_feat, query_feat)
 

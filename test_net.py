@@ -427,7 +427,7 @@ if __name__ == '__main__':
           to_tensor = transforms.ToTensor()
           o_querys=[]
           for i in range(args.checkshot):
-            o_query = data[1][0][i].permute(1, 2,0).contiguous().cpu().numpy()
+            o_query = data[1][i][0].permute(1, 2,0).contiguous().cpu().numpy()
             o_query *= [0.229, 0.224, 0.225]
             o_query += [0.485, 0.456, 0.406]
             o_query *= 255
