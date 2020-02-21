@@ -30,11 +30,8 @@ class roibatchLoader(data.Dataset):
     self._query = query
     self._num_classes = num_classes
     # we make the height of image consistent to trim_height, trim_width
-    self.trim_height = cfg.TRAIN.TRIM_HEIGHT
-    self.trim_width = cfg.TRAIN.TRIM_WIDTH
     self.max_num_box = cfg.MAX_NUM_GT_BOXES
     self.training = training
-    self.normalize = normalize
     self.ratio_list = ratio_list
     self.query_position = 0
 
