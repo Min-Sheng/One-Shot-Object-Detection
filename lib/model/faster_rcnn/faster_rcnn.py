@@ -162,10 +162,19 @@ class _fasterRCNN(nn.Module):
         detect_feat = self.RCNN_base(im_data)
 
         query_feat = []
-        for shot in range(len(query)):
-            query_feat.append(self.RCNN_base(query[shot]))
-        query_feat = torch.stack(query_feat)
-        query_feat = torch.mean(query_feat, 0)
+        shot = len(query)
+        for i in range(shot):
+            query_feat.append(self.RCNN_base(query[i]))
+        
+        def pooling(feats, method='avg', dim = 0):
+            feats = torch.stack(feats)
+            if method == 'avg':
+                feat = torch.mean(feats, dim=dim)
+            elif method == 'max':
+                feat, _ = torch.max(feats, dim=dim)
+            return feat
+
+        query_feat = pooling(query_feat)
 
         rpn_feat, act_feat, act_aim, c_weight = self.match_net(detect_feat, query_feat)
 
