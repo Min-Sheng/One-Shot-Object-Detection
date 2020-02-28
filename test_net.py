@@ -470,6 +470,7 @@ if __name__ == '__main__':
       values = all_results[task][metric_name]
       all_results[task][metric_name] = sum(values) / len(values) 
   imdb_vu.log_copy_paste_friendly_results(all_results)
+  post_fix = '%dshot_sess%d_g%d_seen%d'%(args.checkshot, args.checksession, args.group, args.seen)
   avg_results_path = os.path.join(output_dir_vu, ('avg_cocoeval_' + post_fix + '_results.json'))
   with open(avg_results_path, 'w') as f:
     f.write(json.dumps(all_results))
