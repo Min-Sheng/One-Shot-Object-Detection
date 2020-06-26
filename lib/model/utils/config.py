@@ -180,7 +180,7 @@ __C.TEST.MAX_SIZE = 1000
 
 # Overlap threshold used for non-maximum suppression (suppress boxes with
 # IoU >= this threshold)
-__C.TEST.NMS = 0.3
+__C.TEST.NMS = 0.5 #0.3
 
 # Experimental: treat the (K+1) units in the cls_score layer as linear
 # predictors (trained, eg, with one-vs-rest SVMs).
