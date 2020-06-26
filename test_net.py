@@ -182,7 +182,7 @@ if __name__ == '__main__':
       from roi_data_layer.fss_cell_oneshot_roibatchLoader import roibatchLoader
       args.imdb_name = "fss_cell_2020_train"
       args.imdbval_name = "fss_cell_2020_test"
-      args.set_cfgs = ['ANCHOR_SCALES', '[4, 8, 16, 32]', 'ANCHOR_RATIOS', '[0.5,1,2]']
+      args.set_cfgs = ['ANCHOR_SCALES', '[1, 2, 4, 8, 16, 32]', 'ANCHOR_RATIOS', '[0.2, 0.5, 1, 2, 5]']
 
   args.cfg_file = "cfgs/{}_{}.yml".format(args.net, args.group) if args.group != 0 else "cfgs/{}.yml".format(args.net)
 

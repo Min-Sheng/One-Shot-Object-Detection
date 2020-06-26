@@ -178,9 +178,9 @@ if __name__ == '__main__':
       args.set_cfgs = ['ANCHOR_SCALES', '[4, 8, 16, 32]', 'ANCHOR_RATIOS', '[0.5,1,2]', 'MAX_NUM_GT_BOXES', '50']
   elif args.dataset == "fss_cell":
       from roi_data_layer.fss_cell_oneshot_roibatchLoader import roibatchLoader
-      args.imdb_name = "fss_cell_2020_train"
+      args.imdb_name = "fss_cell_2020_train_val"
       args.imdbval_name = "fss_cell_2020_test"
-      args.set_cfgs = ['ANCHOR_SCALES', '[4, 8, 16, 32]', 'ANCHOR_RATIOS', '[0.5,1,2]', 'MAX_NUM_GT_BOXES', '200']
+      args.set_cfgs = ['ANCHOR_SCALES', '[1, 2, 4, 8, 16, 32]', 'ANCHOR_RATIOS', '[0.2, 0.5, 1, 2, 5]', 'MAX_NUM_GT_BOXES', '500']
 
 
   args.cfg_file = "cfgs/{}_{}.yml".format(args.net, args.group) if args.group != 0 else "cfgs/{}.yml".format(args.net)
@@ -399,7 +399,19 @@ if __name__ == '__main__':
         loss_temp = 0
         start = time.time()
 
-
+      if ((epoch - 1) * iters_per_epoch + step) % 1000 == 0:
+        save_name = os.path.join(output_dir, 'faster_rcnn_{}shot_sess{}_epoch{}_step{}.pth'.format(args.shot, args.session, epoch, step))
+        save_checkpoint({
+          'shot': args.shot, 
+          'session': args.session,
+          'epoch': epoch + 1,
+          'model': fasterRCNN.module.state_dict() if args.mGPUs else fasterRCNN.state_dict(),
+          'optimizer': optimizer.state_dict(),
+          'pooling_mode': cfg.POOLING_MODE,
+          'class_agnostic': args.class_agnostic,
+        }, save_name)
+        print('save model: {}'.format(save_name))
+  
   save_name = os.path.join(output_dir, 'faster_rcnn_{}shot_sess{}_epoch{}_step{}.pth'.format(args.shot, args.session, epoch, step))
   save_checkpoint({
     'shot': args.shot, 
