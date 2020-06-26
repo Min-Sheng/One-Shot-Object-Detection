@@ -21,7 +21,7 @@ import numpy as np
 
 # Set up fss_cell_<year>_<split>
 for year in ['2020']:
-  for split in ['train', 'test']:
+  for split in ['train_val', 'test']:
     name =  'fss_cell_{}_{}'.format(year, split)
     __sets[name] = (lambda split=split, year=year: fss_cell(split, year))
 

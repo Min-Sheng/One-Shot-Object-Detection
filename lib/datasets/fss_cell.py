@@ -64,9 +64,10 @@ class fss_cell(imdb):
       self.cat_data[i] = []
 
   def _get_ann_file(self):
-    ann_filename = 'instances_fss_cell.json'
-    return osp.join(self._data_path, ann_filename)
-
+    prefix = 'instances'
+    return osp.join(self._data_path,
+                    prefix + '_fss_cell_poly_' + self._image_set + '.json')
+    
   def _load_image_set_index(self):
     """
     Load image ids.
@@ -343,12 +344,11 @@ class fss_cell(imdb):
 
     folds = {
     'all': set(range(1, 15)),
-    1: set(range(1, 13)) - set(range(1, 3)),
-    2: set(range(1, 13)) - set(range(3, 6)),
-    3: set(range(1, 13)) - set(range(6, 9)),
-    4: set(range(1, 13)) - set(range(9, 11)),
-    5: set(range(1, 13)) - set(range(11, 13)),
-    6: set(range(13, 15))
+    1: set(range(1, 15)) - set(range(1, 3)),
+    2: set(range(1, 15)) - set(range(3, 6)),
+    3: set(range(1, 15)) - set(range(6, 9)),
+    4: set(range(1, 15)) - set(range(9, 11)),
+    5: set(range(1, 15)) - set(range(11, 15)),
     }
 
     if seen==1:
@@ -361,16 +361,13 @@ class fss_cell(imdb):
       self.list = cfg.test_categories
       # Group number to class
       if len(self.list)==1:
-          if self.list[0] != 6:
-            self.list = list(folds['all'] - folds[self.list[0]] - folds[6])
-          else:
-            self.list = list(folds[6])
-    
+          self.list = list(folds['all'] - folds[self.list[0]])
+
     elif seen==3:
       self.list = cfg.train_categories + cfg.test_categories
       # Group number to class
-      if len(self.list)==2:
-        self.list =list(folds[self.list['all']] - folds[6])
+      if len(self.list)==0:
+        self.list =list(folds['all'])
 
     self.inverse_list = self.list
     # Which index need to be remove
